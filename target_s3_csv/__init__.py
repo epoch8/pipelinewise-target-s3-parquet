@@ -44,6 +44,7 @@ class TargetS3Parquet:
         temp_dir = os.path.expanduser(self.config.get('temp_dir', tempfile.gettempdir()))
         if temp_dir:
             os.makedirs(temp_dir, exist_ok=True)
+        return temp_dir
 
     def validate_message(self, message):
         stream_name = message["stream"]
@@ -57,21 +58,26 @@ class TargetS3Parquet:
 
     def get_filename(self, message):
         stream_name = message['stream']
-        if stream_name not in self.filenames:
-            now = datetime.now().strftime('%Y%m%dT%H%M%S')
-            filename = os.path.expanduser(os.path.join(self.temp_dir, stream_name + '-' + now + '.csv'))
-
-            self.filenames[stream_name] = {
-                'filename': filename,
-                'target_key': utils.get_target_key(
-                    message=message,
-                    prefix=self.config.get('s3_key_prefix', ''),
-                    timestamp=now,
-                    naming_convention=self.config.get('naming_convention')
-                    )
-            }
-        else:
+        
+        if stream_name in self.filenames:
             filename = self.filenames[stream_name]['filename']
+            return filename
+
+        now = datetime.now().strftime('%Y%m%dT%H%M%S')
+        filename = os.path.expanduser(os.path.join(self.temp_dir, stream_name + '-' + now + '.csv'))
+
+        self.filenames[stream_name] = {
+            'filename': filename,
+            'target_key': utils.get_target_key(
+                message=message,
+                prefix=self.config.get('s3_key_prefix', ''),
+                timestamp=now,
+                naming_convention=self.config.get('naming_convention')
+                )
+        }
+        return filename            
+        
+        
 
     def process_message_record(self, message):
         stream_name = message['stream']
