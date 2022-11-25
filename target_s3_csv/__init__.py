@@ -78,56 +78,51 @@ class TargetS3Parquet:
         return filename            
         
         
-
-    def process_message_record(self, message):
-        stream_name = message['stream']
-        if stream_name not in self.schemas:
-            raise Exception(errors.SCHEMA_ERROR.format(stream_name))
-        self.validate_message(message)
-
-        record_to_load = message['record']
-
-        if self.config.get('add_metadata_columns'):
-            record_to_load = utils.add_metadata_values_to_record(message, {})
-        else:
-            record_to_load = utils.remove_metadata_values_from_record(message)
-
-        filename = self.get_filename(message)
-
+    def write_record_to_file(self, stream_name, filename, record):
         file_is_empty = (not os.path.isfile(filename)) or os.stat(filename).st_size == 0
-
-        flattened_record = utils.flatten_record(record_to_load)
-
         delimiter = self.config.get('delimiter', ',')
         quotechar = self.config.get('quotechar', '"')
-
         if stream_name not in self.headers and not file_is_empty:
             with open(filename, 'r') as csvfile:
                 reader = csv.reader(csvfile,
                                     delimiter=delimiter,
                                     quotechar=quotechar)
                 first_line = next(reader)
-                self.headers[stream_name] = first_line if first_line else flattened_record.keys()
+                self.headers[stream_name] = first_line if first_line else record.keys()
         else:
-            self.headers[stream_name] = flattened_record.keys()
-
+            self.headers[stream_name] = record.keys()
         with open(filename, 'a') as csvfile:
-            writer = csv.DictWriter(csvfile,
-                                    self.headers[stream_name],
-                                    extrasaction='ignore',
-                                    delimiter=delimiter,
-                                    quotechar=quotechar)
+            writer = csv.DictWriter(
+                csvfile,
+                self.headers[stream_name],
+                extrasaction='ignore',
+                delimiter=delimiter,
+                quotechar=quotechar
+                )
             if file_is_empty:
                 writer.writeheader()
 
-            writer.writerow(flattened_record)
+            writer.writerow(record)
+
+
+    def process_message_record(self, message):
+        stream_name = message['stream']
+        if stream_name not in self.schemas:
+            raise Exception(errors.SCHEMA_ERROR.format(stream_name))
+        self.validate_message(message)
+        record_to_load = message['record']
+        if self.config.get('add_metadata_columns'):
+            record_to_load = utils.add_metadata_values_to_record(message, {})
+        else:
+            record_to_load = utils.remove_metadata_values_from_record(message)
+        filename = self.get_filename(message)
+        flattened_record = utils.flatten_record(record_to_load)
+        self.write_record_to_file(stream_name, filename, flattened_record)
+
 
     def persist_messages(self, messages):
         state = None
-        
-        key_properties = {}    
-
-
+        key_properties = {}
         for message in messages:
             try:
                 parsed_message: dict = singer.parse_message(message).asdict()
