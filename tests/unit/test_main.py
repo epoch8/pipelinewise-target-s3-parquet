@@ -8,7 +8,27 @@ from unittest.mock import patch, Mock
 import pytest
 from botocore.client import BaseClient
 
-from target_s3_csv import emit_state, persist_messages
+from target_s3_csv import emit_state, TargetS3Parquet
+
+
+MESSAGES = [
+    json.dumps({"type": "SCHEMA", "stream": "my_stream",
+                "schema": {
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "name": {"type": ["string", "null"]},
+                        "age": {"type": ["integer", "null"]},
+                    },
+                },
+                "key_properties": ["id"],
+                "metadata": {}
+    }),
+    json.dumps({"type": "STATE", "stream": "my_stream", "value": {"bookmarks": {"my_stream": 1}}}),
+    json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 1, "name": "Steve", "age": 10}}),
+    json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 2, "name": "Peter", "age": 33}}),
+    json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 3, "name": "Pete", "age": 25}}),
+    json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 4, "name": "John", "age": 40}}),
+]
 
 
 class TestMain(unittest.TestCase):
@@ -35,28 +55,12 @@ class TestMain(unittest.TestCase):
     @patch('target_s3_csv.s3')
     @patch('target_s3_csv.os')
     def test_persist_messages(self, os, s3, csv, open):
-        messages = [
-            json.dumps({"type": "SCHEMA", "stream": "my_stream",
-                        "schema": {
-                            "properties": {
-                                "id": {"type": "integer"},
-                                "name": {"type": ["string", "null"]},
-                                "age": {"type": ["integer", "null"]},
-                            },
-                        },
-                        "key_properties": ["id"],
-                        "metadata": {}
-            }),
-            json.dumps({"type": "STATE", "stream": "my_stream", "value": {"bookmarks": {"my_stream": 1}}}),
-            json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 1, "name": "Steve", "age": 10}}),
-            json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 2, "name": "Peter", "age": 33}}),
-            json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 3, "name": "Pete", "age": 25}}),
-            json.dumps({"type": "RECORD", "stream": "my_stream", "record": {"id": 4, "name": "John", "age": 40}}),
-        ]
-
         s3_client = Mock(spec_set=BaseClient)
-
-        state = persist_messages(messages, self.config, s3_client)
-
+        target = TargetS3Parquet(self.config, s3_client)
+        state = target.persist_messages(MESSAGES)
         self.assertDictEqual({"bookmarks": {"my_stream": 1}}, state)
         s3.upload_files.assert_called_once()
+
+
+    def test_record_to_df(self):
+        ...
