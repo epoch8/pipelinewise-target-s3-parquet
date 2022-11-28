@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
-import gzip
 import io
 import json
 import os
-import shutil
 import sys
 import tempfile
 import singer
@@ -18,6 +15,7 @@ from jsonschema import Draft7Validator, FormatChecker
 from target_s3_csv import s3
 from target_s3_csv import utils
 from target_s3_csv import errors
+from target_s3_csv.file_handlers import FileHandler, ParquetFileHandler, CSVFileHandler
 
 
 LOGGER = singer.get_logger('target_s3_csv')
@@ -38,6 +36,12 @@ class TargetS3Parquet:
         self.validators = {}
         self.filenames = {}
         self.headers = {}
+        
+        if self.config.get("format") == "parquet":
+            self.file_handler = ParquetFileHandler(self)
+        else:
+            self.file_handler = CSVFileHandler(self)
+
 
     @property
     def temp_dir(self):
@@ -64,7 +68,7 @@ class TargetS3Parquet:
             return filename
 
         now = datetime.now().strftime('%Y%m%dT%H%M%S')
-        filename = os.path.expanduser(os.path.join(self.temp_dir, stream_name + '-' + now + '.csv'))
+        filename = os.path.expanduser(os.path.join(self.temp_dir, stream_name + '-' + now + self.file_handler.suffix))
 
         self.filenames[stream_name] = {
             'filename': filename,
@@ -78,33 +82,6 @@ class TargetS3Parquet:
         return filename            
         
         
-    def write_record_to_file(self, stream_name, filename, record):
-        file_is_empty = (not os.path.isfile(filename)) or os.stat(filename).st_size == 0
-        delimiter = self.config.get('delimiter', ',')
-        quotechar = self.config.get('quotechar', '"')
-        if stream_name not in self.headers and not file_is_empty:
-            with open(filename, 'r') as csvfile:
-                reader = csv.reader(csvfile,
-                                    delimiter=delimiter,
-                                    quotechar=quotechar)
-                first_line = next(reader)
-                self.headers[stream_name] = first_line if first_line else record.keys()
-        else:
-            self.headers[stream_name] = record.keys()
-        with open(filename, 'a') as csvfile:
-            writer = csv.DictWriter(
-                csvfile,
-                self.headers[stream_name],
-                extrasaction='ignore',
-                delimiter=delimiter,
-                quotechar=quotechar
-                )
-            if file_is_empty:
-                writer.writeheader()
-
-            writer.writerow(record)
-
-
     def process_message_record(self, message):
         stream_name = message['stream']
         if stream_name not in self.schemas:
@@ -117,7 +94,7 @@ class TargetS3Parquet:
             record_to_load = utils.remove_metadata_values_from_record(message)
         filename = self.get_filename(message)
         flattened_record = utils.flatten_record(record_to_load)
-        self.write_record_to_file(stream_name, filename, flattened_record)
+        self.file_handler.write_record_to_file(stream_name, filename, flattened_record)
 
 
     def persist_messages(self, messages):

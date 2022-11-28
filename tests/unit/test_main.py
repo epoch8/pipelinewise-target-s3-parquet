@@ -50,8 +50,8 @@ class TestMain(unittest.TestCase):
             emit_state({'a': 1, 'b': 2, 'c': 'lool'})
             self.assertEqual('{"a": 1, "b": 2, "c": "lool"}\n', f.getvalue())
 
-    @patch('target_s3_csv.open')
-    @patch('target_s3_csv.csv')
+    @patch('target_s3_csv.file_handlers.open')
+    @patch('target_s3_csv.file_handlers.csv')
     @patch('target_s3_csv.s3')
     @patch('target_s3_csv.os')
     def test_persist_messages(self, os, s3, csv, open):
