@@ -36,11 +36,7 @@ class TargetS3Parquet:
         self.validators = {}
         self.filenames = {}
         self.headers = {}
-        
-        if self.config.get("format") == "parquet":
-            self.file_handler = ParquetFileHandler(self)
-        else:
-            self.file_handler = CSVFileHandler(self)
+        self.file_handler = CSVFileHandler(self)
 
 
     @property
@@ -76,7 +72,8 @@ class TargetS3Parquet:
                 message=message,
                 prefix=self.config.get('s3_key_prefix', ''),
                 timestamp=now,
-                naming_convention=self.config.get('naming_convention')
+                naming_convention=self.config.get('naming_convention'),
+                format=self.file_handler.suffix
                 )
         }
         return filename            
@@ -128,10 +125,9 @@ class TargetS3Parquet:
                 LOGGER.debug('ACTIVATE_VERSION message')
             else:
                 LOGGER.warning("Unknown message type {} in message {}".format(parsed_message['type'], parsed_message))
-
-        # Upload created CSV files to S3
+        # Upload created files to S3
         s3.upload_files(iter(self.filenames.values()), self.s3_client, self.config['s3_bucket'], self.config.get("compression"),
-                        self.config.get('encryption_type'), self.config.get('encryption_key'))
+                        self.config.get('encryption_type'), self.config.get('encryption_key'), self.config.get('format'))
 
         return state
 

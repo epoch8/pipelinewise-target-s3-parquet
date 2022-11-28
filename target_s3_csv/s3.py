@@ -5,7 +5,7 @@ import shutil
 import backoff
 import boto3
 import singer
-
+from pyarrow import csv as pa_csv, parquet
 from typing import Optional, Tuple, List, Dict, Iterator
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
@@ -91,7 +91,8 @@ def upload_files(filenames: Iterator[Dict],
                  s3_bucket: str,
                  compression: Optional[str],
                  encryption_type: Optional[str],
-                 encryption_key: Optional[str]):
+                 encryption_key: Optional[str],
+                 to_parquet: Optional[bool]):
     """
     Uploads given local files to s3
     Compress if necessary
@@ -99,7 +100,9 @@ def upload_files(filenames: Iterator[Dict],
     for file in filenames:
         filename, target_key = file['filename'], file['target_key']
         compressed_file = None
-
+        if to_parquet:
+            filename = transform_csv_to_parquet(filename)
+            target_key = target_key.split(".csv")[0] + ".parquet"
         if compression is not None and compression.lower() != "none":
             if compression == "gzip":
                 compressed_file = f"{filename}.gz"
@@ -128,3 +131,10 @@ def upload_files(filenames: Iterator[Dict],
             os.remove(filename)
             if compressed_file:
                 os.remove(compressed_file)
+
+
+def transform_csv_to_parquet(filename):
+    table = pa_csv.read_csv(filename)
+    filename_parquet = filename.split(".csv")[0] + ".parquet"
+    parquet.write_table(table, filename_parquet)
+    return filename_parquet

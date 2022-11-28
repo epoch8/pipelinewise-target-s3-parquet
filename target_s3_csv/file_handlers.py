@@ -1,6 +1,9 @@
 import os
 import csv
 import pyarrow as pa
+import io
+import json
+from pyarrow import json as pa_json
 from pyarrow.parquet import ParquetWriter
 from abc import ABC
 
@@ -55,20 +58,24 @@ class ParquetFileHandler(FileHandler):
     def __init__(self, target):
         self.suffix = ".parquet"
         self.target = target
-        
+        self.writer = None
+
     def write_record_to_file(self, stream_name, filename, record):
-        dataframe = self.create_dataframe(record)
-        with open(filename, "wb") as f:
-            ParquetWriter(
-                f, dataframe.schema
-            ).write_table(dataframe)
-        # explicit memory management. This can be usefull when working on very large data groups
-        del dataframe
-    
-    @staticmethod
-    def create_dataframe(list_dict):
-        fields = set()
-        for d in list_dict:
-            fields = fields.union(d.keys())
-        dataframe = pa.table({f: [row.get(f) for row in list_dict] for f in fields})
-        return dataframe
+        json_data = io.BytesIO(bytes(json.dumps(record), encoding="utf-8"))
+        table = pa_json.read_json(json_data)
+        if self.writer is None:
+            self.writer =  ParquetWriter(
+                filename, table.schema
+            )
+        try:
+            self.writer.write_table(table)
+        except ValueError:
+            self.writer =  ParquetWriter(
+                filename, table.schema
+            )
+            self.writer.write_table(table)
+
+        # import pyarrow.parquet as pq
+        # table = pq.read_table(filename)
+        # print(table.to_pydict())
+        # print("*****")

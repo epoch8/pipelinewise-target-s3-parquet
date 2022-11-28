@@ -134,6 +134,12 @@ class TestIntegration(unittest.TestCase):
         self.persist_messages(tap_lines)
         self.assert_three_streams_are_in_s3_bucket()
 
+    def test_parquet_format(self):
+        tap_lines = test_utils.get_test_tap_lines('messages-with-three-streams.json')
+        self.config['format'] = "parquet"
+        self.persist_messages(tap_lines)
+        self.assert_three_streams_are_in_s3_bucket()
+
     def test_loading_tables_with_custom_temp_dir(self):
         """Loading multiple tables from the same input tap using custom temp directory"""
         tap_lines = test_utils.get_test_tap_lines('messages-with-three-streams.json')

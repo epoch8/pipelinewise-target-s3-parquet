@@ -122,10 +122,10 @@ def flatten_record(d, parent_key=None, sep='__'):
     return dict(items)
 
 
-def get_target_key(message, prefix=None, timestamp=None, naming_convention=None):
+def get_target_key(message, prefix=None, timestamp=None, naming_convention=None, format=".csv"):
     """Creates and returns an S3 key for the message"""
     if not naming_convention:
-        naming_convention = '{stream}-{timestamp}.csv' # o['stream'] + '-' + now + '.csv'
+        naming_convention = '{stream}-{timestamp}{format}' # o['stream'] + '-' + now + 'format'
     if not timestamp:
         timestamp = datetime.now().strftime('%Y%m%dT%H%M%S')
     key = naming_convention
@@ -134,7 +134,8 @@ def get_target_key(message, prefix=None, timestamp=None, naming_convention=None)
     for k, v in {
         '{stream}': message['stream'],
         '{timestamp}': timestamp,
-        '{date}': datetime.now().strftime('%Y-%m-%d')
+        '{date}': datetime.now().strftime('%Y-%m-%d'),
+        '{format}': format
     }.items():
         if k in key:
             key = key.replace(k, v)
