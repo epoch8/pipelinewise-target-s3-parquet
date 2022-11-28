@@ -137,4 +137,5 @@ def transform_csv_to_parquet(filename):
     table = pa_csv.read_csv(filename)
     filename_parquet = filename.split(".csv")[0] + ".parquet"
     parquet.write_table(table, filename_parquet)
+    os.remove(filename)
     return filename_parquet
