@@ -116,7 +116,7 @@ class TargetS3Parquet:
                 self.schemas[stream_name] = parsed_message['schema']
 
                 if self.config.get('add_metadata_columns'):
-                    self.schemas[stream_name] = utils.add_metadata_columns_to_schema(o)
+                    self.schemas[stream_name] = utils.add_metadata_columns_to_schema(parsed_message)
 
                 schema = utils.float_to_decimal(parsed_message['schema'])
                 self.validators[stream_name] = Draft7Validator(schema, format_checker=FormatChecker())

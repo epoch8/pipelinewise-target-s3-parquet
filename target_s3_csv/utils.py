@@ -47,13 +47,6 @@ def add_metadata_columns_to_schema(schema_message):
     """
     extended_schema_message = schema_message
     extended_schema_message['schema']['properties']['_sdc_batched_at'] = { 'type': ['null', 'string'], 'format': 'date-time' }
-    extended_schema_message['schema']['properties']['_sdc_deleted_at'] = { 'type': ['null', 'string'] }
-    extended_schema_message['schema']['properties']['_sdc_extracted_at'] = { 'type': ['null', 'string'], 'format': 'date-time' }
-    extended_schema_message['schema']['properties']['_sdc_primary_key'] = {'type': ['null', 'string'] }
-    extended_schema_message['schema']['properties']['_sdc_received_at'] = { 'type': ['null', 'string'], 'format': 'date-time' }
-    extended_schema_message['schema']['properties']['_sdc_sequence'] = {'type': ['integer'] }
-    extended_schema_message['schema']['properties']['_sdc_table_version'] = {'type': ['null', 'string'] }
-
     return extended_schema_message
 
 
@@ -63,13 +56,6 @@ def add_metadata_values_to_record(record_message, schema_message):
     """
     extended_record = record_message['record']
     extended_record['_sdc_batched_at'] = datetime.now().isoformat()
-    extended_record['_sdc_deleted_at'] = record_message.get('record', {}).get('_sdc_deleted_at')
-    extended_record['_sdc_extracted_at'] = record_message.get('time_extracted')
-    extended_record['_sdc_primary_key'] = schema_message.get('key_properties')
-    extended_record['_sdc_received_at'] = datetime.now().isoformat()
-    extended_record['_sdc_sequence'] = int(round(time.time() * 1000))
-    extended_record['_sdc_table_version'] = record_message.get('version')
-
     return extended_record
 
 
