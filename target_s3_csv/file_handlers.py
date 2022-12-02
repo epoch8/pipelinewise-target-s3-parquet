@@ -74,8 +74,3 @@ class ParquetFileHandler(FileHandler):
                 filename, table.schema
             )
             self.writer.write_table(table)
-
-        # import pyarrow.parquet as pq
-        # table = pq.read_table(filename)
-        # print(table.to_pydict())
-        # print("*****")

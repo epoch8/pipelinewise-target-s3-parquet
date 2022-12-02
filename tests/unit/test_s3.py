@@ -42,6 +42,7 @@ class TestS3(unittest.TestCase):
             'my_bucket',
             None,
             None,
+            None,
             None
         )
 
@@ -80,7 +81,9 @@ class TestS3(unittest.TestCase):
             'my_bucket',
             'gzip',
             None,
+            None,
             None
+
         )
 
         # make sure the uploading to s3 has been called once for each file
@@ -118,7 +121,9 @@ class TestS3(unittest.TestCase):
             'my_bucket',
             None,
             'kms',
+            None,
             None
+
         )
 
         # make sure the uploading to s3 has been called once for each file
