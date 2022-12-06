@@ -50,12 +50,14 @@ def add_metadata_columns_to_schema(schema_message):
     return extended_schema_message
 
 
-def add_metadata_values_to_record(record_message, schema_message):
+def add_metadata_values_to_record(record_message, schema_message, timestamp=None):
     """Populate metadata _sdc columns from incoming record message
     The location of the required attributes are fixed in the stream
     """
     extended_record = record_message['record']
-    extended_record['_sdc_batched_at'] = datetime.now().isoformat()
+    if not timestamp:
+        timestamp = datetime.now().isoformat()
+    extended_record['_sdc_batched_at'] = timestamp
     return extended_record
 
 

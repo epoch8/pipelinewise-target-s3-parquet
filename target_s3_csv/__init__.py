@@ -19,6 +19,7 @@ from target_s3_csv.file_handlers import FileHandler, ParquetFileHandler, CSVFile
 
 
 LOGGER = singer.get_logger('target_s3_csv')
+DEFAULT_BATCH_SIZE = 100_000 
 
 def emit_state(state):
     if state is not None:
@@ -61,9 +62,10 @@ class TargetS3Parquet:
         
         if stream_name in self.filenames:
             filename = self.filenames[stream_name]['filename']
-            return filename
+            if os.path.exists(filename):
+                return filename
 
-        now = datetime.now().strftime('%Y%m%dT%H%M%S')
+        now = datetime.now().strftime('%Y%m%dT%H%M%S.%f')[:-3]
         filename = os.path.expanduser(os.path.join(self.temp_dir, stream_name + '-' + now + self.file_handler.suffix))
 
         self.filenames[stream_name] = {
@@ -86,7 +88,7 @@ class TargetS3Parquet:
         self.validate_message(message)
         record_to_load = message['record']
         if self.config.get('add_metadata_columns'):
-            record_to_load = utils.add_metadata_values_to_record(message, {})
+            record_to_load = utils.add_metadata_values_to_record(message, {}, self._sdc_batched_at)
         else:
             record_to_load = utils.remove_metadata_values_from_record(message)
         filename = self.get_filename(message)
@@ -97,6 +99,9 @@ class TargetS3Parquet:
     def persist_messages(self, messages):
         state = None
         key_properties = {}
+        row_count = 0
+        total_batches = 0
+        self._sdc_batched_at = datetime.now().isoformat()
         for message in messages:
             try:
                 parsed_message: dict = singer.parse_message(message).asdict()
@@ -106,7 +111,7 @@ class TargetS3Parquet:
             message_type = parsed_message['type']
             if message_type == 'RECORD':
                 self.process_message_record(parsed_message)
-
+                row_count += 1
             elif message_type == 'STATE':
                 LOGGER.debug('Setting state to {}'.format(parsed_message['value']))
                 state = parsed_message['value']
@@ -125,11 +130,25 @@ class TargetS3Parquet:
                 LOGGER.debug('ACTIVATE_VERSION message')
             else:
                 LOGGER.warning("Unknown message type {} in message {}".format(parsed_message['type'], parsed_message))
-        # Upload created files to S3
-        s3.upload_files(iter(self.filenames.values()), self.s3_client, self.config['s3_bucket'], self.config.get("compression"),
-                        self.config.get('encryption_type'), self.config.get('encryption_key'), self.config.get('format'))
 
-        return state
+            if row_count == self.config.get("default_batch_size", DEFAULT_BATCH_SIZE):
+                s3.upload_files(
+                    iter(self.filenames.values()), 
+                    self.s3_client, 
+                    self.config['s3_bucket'], 
+                    self.config.get("compression"),
+                    self.config.get('encryption_type'), self.config.get('encryption_key'), self.config.get('format')
+                    )
+                emit_state(state)
+                row_count = 0
+                total_batches += 1
+                print(total_batches)
+                self._sdc_batched_at = datetime.now().isoformat()
+        if row_count > 0:
+            s3.upload_files(iter(self.filenames.values()), self.s3_client, self.config['s3_bucket'], self.config.get("compression"),
+                            self.config.get('encryption_type'), self.config.get('encryption_key'), self.config.get('format'))
+        emit_state(state)
+
 
 
 def main():
@@ -153,9 +172,8 @@ def main():
     input_messages = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
 
     target = TargetS3Parquet(config, s3_client)
-    state = target.persist_messages(input_messages)
+    target.persist_messages(input_messages)
 
-    emit_state(state)
     LOGGER.debug("Exiting normally")
 
 

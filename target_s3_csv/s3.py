@@ -99,6 +99,8 @@ def upload_files(filenames: Iterator[Dict],
     """
     for file in filenames:
         filename, target_key = file['filename'], file['target_key']
+        if not os.path.exists(filename):
+            continue
         compressed_file = None
         if to_parquet:
             filename = transform_csv_to_parquet(filename)

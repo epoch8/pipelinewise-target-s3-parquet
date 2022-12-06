@@ -149,3 +149,10 @@ class TestIntegration(unittest.TestCase):
         self.persist_messages(tap_lines)
 
         self.assert_three_streams_are_in_s3_bucket()
+
+    def test_batch_size(self):
+        tap_lines = test_utils.get_test_tap_lines('messages-with-three-streams.json')
+        self.config['default_batch_size'] = 2
+        self.config['naming_convention'] = "batches/{stream}/{timestamp}.csv"
+        self.persist_messages(tap_lines)
+        self.assert_three_streams_are_in_s3_bucket()
