@@ -139,15 +139,16 @@ class TargetS3Parquet:
                     self.config.get("compression"),
                     self.config.get('encryption_type'), self.config.get('encryption_key'), self.config.get('format')
                     )
-                emit_state(state)
+                if state is not None:
+                    emit_state(state)
                 row_count = 0
                 total_batches += 1
-                print(total_batches)
+                LOGGER.info(f"total batches is {total_batches}")
                 self._sdc_batched_at = datetime.now().isoformat()
         if row_count > 0:
             s3.upload_files(iter(self.filenames.values()), self.s3_client, self.config['s3_bucket'], self.config.get("compression"),
                             self.config.get('encryption_type'), self.config.get('encryption_key'), self.config.get('format'))
-        emit_state(state)
+            emit_state(state)
 
 
 
