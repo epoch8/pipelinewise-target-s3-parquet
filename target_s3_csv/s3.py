@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 import gzip
+import time
 import os
 import shutil
 import backoff
 import boto3
 import singer
 from pyarrow import csv as pa_csv, parquet
+from pyarrow.lib import ArrowInvalid
 from typing import Optional, Tuple, List, Dict, Iterator
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
+
 
 LOGGER = singer.get_logger('target_s3_csv')
 
@@ -136,7 +139,36 @@ def upload_files(filenames: Iterator[Dict],
 
 
 def transform_csv_to_parquet(filename):
-    table = pa_csv.read_csv(filename)
+    try:
+        table = pa_csv.read_csv(filename)
+    except ArrowInvalid as error:
+        LOGGER.warning(f'Error:\t{error}')
+        LOGGER.warning(f'Filename:\t{filename}')
+
+        filename_fixed = filename.replace(".csv", "_fixed.csv")
+
+        with open(filename, mode='r') as in_file, \
+            open(filename_fixed, mode='w') as out_file:
+            for line in in_file:
+
+                if line.find('ss_order_placed') != -1:
+                    line_splitted = line.split(',')
+
+                    _sdc_batched_at = line_splitted[0]
+                    checksum = ''
+                    client = ''
+                    e = ','.join(line_splitted[1:-1])
+                    ingest_uuid = line_splitted[-1].replace(f'\n', '')
+                    upload_time = str(round(time.time() * 1000))
+                    v = ''
+
+                    line = f'{_sdc_batched_at},{checksum},{client},{e},{ingest_uuid},{upload_time},{v}\n'
+
+                out_file.write(line)
+
+        table = pa_csv.read_csv(filename_fixed)
+        os.remove(filename_fixed)
+
     filename_parquet = filename.split(".csv")[0] + ".parquet"
     parquet.write_table(table, filename_parquet)
     os.remove(filename)
