@@ -163,12 +163,15 @@ def transform_csv_to_parquet(filename):
                     v = ''
 
                     line = f'{_sdc_batched_at},{checksum},{client},{e},{ingest_uuid},{upload_time},{v}\n'
-                
+
                 else:
                     line_splitted = line.split(',')
 
                     if line_splitted[2].find("session_id") != -1:
                         line = f'{line_splitted[0]},"broken_checksum",{line_splitted[1]},' + ','.join(line_splitted[2:])
+
+                    if len(line_splitted) == 6 and line_splitted[1] != 'checksum':
+                        line = f'{line_splitted[0]},"checksum",{line_splitted[1]},' + ','.join(line_splitted[2:])
 
                 out_file.write(line)
 
