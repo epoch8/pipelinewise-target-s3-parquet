@@ -173,6 +173,9 @@ def transform_csv_to_parquet(filename):
                     if len(line_splitted) == 6 and line_splitted[1] != 'checksum':
                         line = f'{line_splitted[0]},"checksum",{line_splitted[1]},' + ','.join(line_splitted[2:])
 
+                    if len(line_splitted) < 6:
+                        line = f"_sdc_batched_at,checksum,client,e,ingest_uuid,upload_time,v"
+
                 out_file.write(line)
 
         table = pa_csv.read_csv(filename_fixed)
