@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import time
 import singer
-import json
+# import json
+import simplejson as json
 import re
 import inflection
 
@@ -106,7 +107,8 @@ def flatten_record(d, parent_key=None, sep='__'):
         if isinstance(v, MutableMapping):
             items.extend(flatten_record(v, parent_key + [k], sep=sep).items())
         else:
-            items.append((new_key, json.dumps(v) if type(v) is list else v))
+            # items.append((new_key, json.dumps(v) if type(v) is list else v))
+            items.append((new_key, json.dumps(v, use_decimal=True) if type(v) is list else v))
     return dict(items)
 
 
